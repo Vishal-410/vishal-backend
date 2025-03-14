@@ -4,6 +4,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { uploadOnCloudnary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import mongoose from "mongoose";
 
 const generateAccessAndRefreshToken = async (userId) => {
   try {
@@ -206,7 +207,7 @@ const changeCurrentPasswod = asyncHandler(async (req, res) => {
 })
 const getCurrentUser = asyncHandler(async (req, res) => {
   return res.status(200)
-    .json(200, req.user, "current User fetched successfully")
+    .json(new ApiResponse(200, req.user, "current User fetched successfully"))
 
 })
 
@@ -237,7 +238,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!avatarLocalPath) {
     throw new ApiError(400, "Please upload a file");
   }
-  const avatar =await uploadOnCloudnary(avatarLocalPath);
+  const avatar = await uploadOnCloudnary(avatarLocalPath);
   if (!avatar.url) {
     throw new ApiError(400, "Failed to upload avatar");
   }
@@ -273,5 +274,108 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 
 })
 
+const getUserProfileDetails = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new ApiError(400, "Please provide a username");
+  }
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      }
 
-export { registerUser, loginUser, logoutUser, refreshToken, changeCurrentPasswod, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage };
+    }, {
+      $lookup: {
+        from: 'subscriptions',
+        localField: '_id',
+        foreignField: 'channel',
+        as: "subscribers"
+      }
+    }, {
+      $lookup: {
+        from: 'subscriptions',
+        localField: '_id',
+        foreignField: 'subscriber',
+        as: "subscribeTo"
+      }
+    }, {
+      $addFields: {
+        subscribersCount: { $size: "$subscribers" },
+        channelsSubscribedToCount: { $size: "$subscribeTo" },
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false
+          }
+        }
+      }
+    }, {
+      $project: {
+        fullname: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        isSubscribed: 1,
+        email: 1,
+      }
+
+    }
+  ])
+  if (!channel?.length) {
+    throw new ApiError(404, "channel des not exist")
+  }
+  return res.status(200)
+    .json(
+      new ApiResponse(200, channel[0], "user chanelled fetched successfully")
+    )
+
+})
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId
+      }
+    }, {
+      $lookup: {
+        from: 'videos',
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        pipeline: [{
+          $lookup: {
+            from: 'users',
+            localField: 'owner',
+            foreignField: '_id',
+            as: "owner",
+            pipeline:[
+              {
+                $project:{
+                  fullname:1,
+                  username:1,
+                  avatar:1
+                }
+              }
+            ]
+          }
+        },
+        {
+          $addFields:{
+            owner:{$first:"$owner"}
+          }
+        }
+      ]
+      }
+    }
+  ])
+  return res.status(200)
+  .json(new ApiResponse(200,user[0].watchHistory,"watch history fetched successfully"))
+})
+
+
+export { registerUser, loginUser, logoutUser, refreshToken, changeCurrentPasswod, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage, getUserProfileDetails ,getWatchHistory};
