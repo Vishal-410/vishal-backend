@@ -237,11 +237,11 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   if (!avatarLocalPath) {
     throw new ApiError(400, "Please upload a file");
   }
-  const avatar = uploadOnCloudnary(avatarLocalPath);
+  const avatar =await uploadOnCloudnary(avatarLocalPath);
   if (!avatar.url) {
     throw new ApiError(400, "Failed to upload avatar");
   }
-  const user=await User.findByIdAndUpdate(req.user?._id, {
+  const user = await User.findByIdAndUpdate(req.user?._id, {
     $set: {
       avatar: avatar.url
     }
@@ -249,7 +249,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password")
   return res.status(200)
-  .json(new ApiResponse(200, { message: "Avatar updated" }, "Avatar updated"))
+    .json(new ApiResponse(200, { message: "Avatar updated" }, "Avatar updated"))
 })
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
@@ -257,11 +257,11 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Please upload a file");
   }
-  const coverImage = uploadOnCloudnary(coverImageLocalPath);
-  if (!coverImage.url) {
+  const coverImage = await uploadOnCloudnary(coverImageLocalPath);
+  if (!coverImage || !coverImage.url) {
     throw new ApiError(400, "Failed to upload avatar");
   }
-  const user=await User.findByIdAndUpdate(req.user?._id, {
+  const user = await User.findByIdAndUpdate(req.user?._id, {
     $set: {
       coverImage: coverImage.url
     }
@@ -269,9 +269,9 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password")
   return res.status(200)
-  .json(new ApiResponse(200, { message: "Cover image updated" }, "Cover image"))
-  
+    .json(new ApiResponse(200, { message: "Cover image updated" }, "Cover image"))
+
 })
 
 
-export { registerUser, loginUser, logoutUser, refreshToken, changeCurrentPasswod, getCurrentUser, updateAccountDetail, updateUserAvatar,updateUserCoverImage };
+export { registerUser, loginUser, logoutUser, refreshToken, changeCurrentPasswod, getCurrentUser, updateAccountDetail, updateUserAvatar, updateUserCoverImage };
