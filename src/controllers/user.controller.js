@@ -134,8 +134,8 @@ const logoutUser = asyncHandler((req, res) => {
   User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined
+      $unset: {
+        refreshToken: 1 // this removes thr field from document
       }
     }, {
     new: true
@@ -155,7 +155,7 @@ const logoutUser = asyncHandler((req, res) => {
 })
 
 const refreshToken = asyncHandler(async (req, res) => {
-  const incomingRefreshToken = req.cookie.refreshToken || req.body.refreshToken
+  const incomingRefreshToken = req.cookies.refreshToken || req.body.refreshToken
   if (!incomingRefreshToken) {
     throw new ApiError(401, "unauthorized request")
   }
@@ -336,10 +336,12 @@ const getUserProfileDetails = asyncHandler(async (req, res) => {
 })
 
 const getWatchHistory = asyncHandler(async (req, res) => {
+
   const user = await User.aggregate([
     {
       $match: {
-        _id: new mongoose.Types.ObjectId
+        _id: new mongoose.Types.ObjectId(req.user?._id)
+        
       }
     }, {
       $lookup: {
@@ -373,6 +375,9 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       }
     }
   ])
+  if(!user || user.length === 0){
+    throw new ApiError(404, "user does not exist")
+  }
   return res.status(200)
   .json(new ApiResponse(200,user[0].watchHistory,"watch history fetched successfully"))
 })
